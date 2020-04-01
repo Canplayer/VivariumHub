@@ -49,6 +49,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 BluetoothDevice.ACTION_FOUND -> {
                     Log.d("INFO", "BluetoothDevice ACTION_FOUND")
+                    val device =
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE) as BluetoothDevice
+                    Log.d(
+                        "INFO",
+                        "Address: " + device.address
+                    )
+                    Log.d(
+                        "INFO",
+                        "Name: " + device.name
+                    )
                 }
             }
         }
