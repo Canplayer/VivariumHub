@@ -1,58 +1,57 @@
 package com.canplayer.vivariumhub
 
-import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
-import com.inuker.bluetooth.library.BluetoothClient
-import com.inuker.bluetooth.library.beacon.Beacon
-import com.inuker.bluetooth.library.search.SearchRequest
-import com.inuker.bluetooth.library.search.SearchResult
-import com.inuker.bluetooth.library.search.response.SearchResponse
-import com.inuker.bluetooth.library.utils.BluetoothLog
+import lee.xvan.btspp.BluetoothSPP
 import pub.devrel.easypermissions.EasyPermissions
-import java.util.*
 
 
 const val RC_LOCATION_REQ = 3
 
 class MainActivity : AppCompatActivity() {
-    lateinit var mClient: BluetoothClient
-
+    lateinit var bt: BluetoothSPP
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        mClient = BluetoothClient(this)
+        bt = BluetoothSPP(this)
         findViewById<Button>(R.id.btn_search).setOnClickListener { this.onSearchClicked() }
     }
 
     private fun onSearchClicked() {
-        val request = SearchRequest.Builder()
-            .searchBluetoothClassicDevice(5000)
-            .build()
-        mClient.search(request, object : SearchResponse {
-            override fun onSearchCanceled() {
-            }
+        if (!bt.isBluetoothAvailable) {
+            Log.d("INFO", "bt.isBluetoothAvailable false")
+        } else
+            Log.d("INFO", "bt.isBluetoothAvailable on")
+        val filter = IntentFilter()
+        filter.addAction(BluetoothDevice.ACTION_FOUND)
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        registerReceiver(mReceiver, filter)
+        bt.startDiscovery()
+    }
 
-            override fun onDeviceFounded(device: SearchResult?) {
-                Log.d("INFO", "Device: " + device?.name)
-                val beacon = Beacon(device?.scanRecord)
-                BluetoothLog.v(
-                    java.lang.String.format(
-                        "beacon for %s\n%s",
-                        device?.address,
-                        beacon.toString()
-                    )
-                )
+    private val mReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent) {
+            when (intent.action) {
+                BluetoothAdapter.ACTION_DISCOVERY_STARTED -> {
+                    Log.d("INFO", "ACTION_DISCOVERY_STARTED")
+                }
+                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                    Log.d("INFO", "ACTION_DISCOVERY_FINISHED")
+                }
+                BluetoothDevice.ACTION_FOUND -> {
+                    Log.d("INFO", "BluetoothDevice ACTION_FOUND")
+                }
             }
-
-            override fun onSearchStarted() {
-            }
-
-            override fun onSearchStopped() {
-            }
-        })
+        }
     }
 
     override fun onRequestPermissionsResult(
