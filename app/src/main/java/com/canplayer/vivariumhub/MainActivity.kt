@@ -11,10 +11,12 @@ import android.util.Log
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import lee.xvan.btspp.BluetoothSPP
+import lee.xvan.btspp.BluetoothSPP.OnDataReceivedListener
+import lee.xvan.btspp.BluetoothState
 import pub.devrel.easypermissions.EasyPermissions
 
 
-const val RC_LOCATION_REQ = 3
+//const val RC_LOCATION_REQ = 3
 
 class MainActivity : AppCompatActivity() {
     lateinit var bt: BluetoothSPP
@@ -36,6 +38,25 @@ class MainActivity : AppCompatActivity() {
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
         registerReceiver(mReceiver, filter)
         bt.startDiscovery()
+        bt.startService(BluetoothState.DEVICE_OTHER)
+        bt.setBluetoothConnectionListener(object : BluetoothSPP.BluetoothConnectionListener {
+            override fun onDeviceConnected(name: String?, address: String?) {
+                Log.d("INFO", "Device connect name: $name, address: $address")
+            }
+
+            override fun onDeviceConnectionFailed() {
+                Log.d("INFO", "Device connection failed")
+            }
+
+            override fun onDeviceDisconnected() {
+
+            }
+        })
+        bt.setOnDataReceivedListener(object : OnDataReceivedListener {
+            override fun onDataReceived(data: ByteArray?, message: String?) {
+                Log.d("INFO", "Incoming: $message")
+            }
+        })
     }
 
     private val mReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -53,12 +74,19 @@ class MainActivity : AppCompatActivity() {
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE) as BluetoothDevice
                     Log.d(
                         "INFO",
-                        "Address: " + device.address
-                    )
-                    Log.d(
-                        "INFO",
                         "Name: " + device.name
                     )
+                    if (device.name == "HC-06") {
+                        bt.connect(device.address)
+                        Log.d(
+                            "INFO",
+                            "Address: " + device.address
+                        )
+                        Log.d(
+                            "INFO",
+                            "Name: " + device.name
+                        )
+                    }
                 }
             }
         }

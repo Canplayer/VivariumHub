@@ -33,10 +33,13 @@ class BluetoothSPP(
     private var mDataReceivedListener: OnDataReceivedListener? = null
     private var mBluetoothConnectionListener: BluetoothConnectionListener? = null
     private var mAutoConnectionListener: AutoConnectionListener? = null
+
     // Local Bluetooth adapter
     var bluetoothAdapter: BluetoothAdapter? = null
+
     // Member object for the chat services
     private var mChatService: BluetoothService? = null
+
     // Name and Address of the connected device
     var connectedDeviceName: String? = null
         private set
@@ -83,56 +86,54 @@ class BluetoothSPP(
         }
 
     val isBluetoothEnabled: Boolean
-        get() = bluetoothAdapter!!.isEnabled
+        get() = bluetoothAdapter?.isEnabled ?: false
 
     val isServiceAvailable: Boolean
         get() = mChatService != null
 
     fun startDiscovery(): Boolean {
-        return bluetoothAdapter!!.startDiscovery()
+        return bluetoothAdapter?.startDiscovery() ?: false
     }
 
     val isDiscovery: Boolean
-        get() = bluetoothAdapter!!.isDiscovering
+        get() = bluetoothAdapter?.isDiscovering ?: false
 
     fun cancelDiscovery(): Boolean {
-        return bluetoothAdapter!!.cancelDiscovery()
+        return bluetoothAdapter?.cancelDiscovery() ?: false
     }
 
-    fun setupService() {
-        mChatService = BluetoothService(mContext, mHandler)
-    }
+//    fun setupService() {
+//        mChatService = BluetoothService(mContext, mHandler)
+//    }
 
     val serviceState: Int
-        get() = if (mChatService != null) mChatService!!.state else -1
+        get() = if (mChatService != null) (mChatService?.state ?: -1) else -1
 
     fun startService(isAndroid: Boolean) {
         if (mChatService != null) {
-            if (mChatService!!.state == BluetoothState.STATE_NONE) {
+            if (mChatService?.state == BluetoothState.STATE_NONE) {
                 isServiceRunning = true
                 mChatService!!.start(isAndroid)
-                this@BluetoothSPP.isAndroid = isAndroid
+                this.isAndroid = isAndroid
             }
+        } else {
+            mChatService = BluetoothService(mContext, mHandler)
         }
     }
 
     fun stopService() {
-        if (mChatService != null) {
-            isServiceRunning = false
-            mChatService!!.stop()
-        }
-        Handler().postDelayed({
-            if (mChatService != null) {
-                isServiceRunning = false
-                mChatService!!.stop()
-            }
-        }, 500)
+        isServiceRunning = false
+        mChatService?.stop()
+//        Handler().postDelayed({
+//            isServiceRunning = false
+//            mChatService?.stop()
+//        }, 500)
     }
 
     fun setDeviceTarget(isAndroid: Boolean) {
         stopService()
         startService(isAndroid)
-        this@BluetoothSPP.isAndroid = isAndroid
+        this.isAndroid = isAndroid
     }
 
     @SuppressLint("HandlerLeak")
@@ -161,10 +162,12 @@ class BluetoothSPP(
                     )
                     isConnected = true
                 }
-                BluetoothState.MESSAGE_TOAST -> Toast.makeText(
-                    mContext, msg.data.getString(BluetoothState.TOAST)
-                    , Toast.LENGTH_SHORT
-                ).show()
+                BluetoothState.MESSAGE_TOAST -> {
+                    Toast.makeText(
+                        mContext, msg.data.getString(BluetoothState.TOAST)
+                        , Toast.LENGTH_SHORT
+                    ).show()
+                }
                 BluetoothState.MESSAGE_STATE_CHANGE -> {
                     if (mBluetoothStateListener != null) mBluetoothStateListener!!.onServiceStateChanged(
                         msg.arg1
@@ -197,17 +200,21 @@ class BluetoothSPP(
     }
 
     fun connect(address: String?) {
-        val device = bluetoothAdapter!!.getRemoteDevice(address)
-        mChatService!!.connect(device)
+        val device = bluetoothAdapter?.getRemoteDevice(address)
+        if (device != null) {
+            mChatService?.connect(device)
+        } else {
+            Log.d("INFO", "Trying to connect to an Empty Device")
+        }
     }
 
     fun disconnect() {
         if (mChatService != null) {
             isServiceRunning = false
-            mChatService!!.stop()
-            if (mChatService!!.state == BluetoothState.STATE_NONE) {
+            mChatService?.stop()
+            if (mChatService?.state == BluetoothState.STATE_NONE) {
                 isServiceRunning = true
-                mChatService!!.start(isAndroid)
+                mChatService?.start(isAndroid)
             }
         }
     }
@@ -233,15 +240,15 @@ class BluetoothSPP(
     }
 
     fun send(data: ByteArray, CRLF: Boolean) {
-        if (mChatService!!.state == BluetoothState.STATE_CONNECTED) {
+        if (mChatService?.state == BluetoothState.STATE_CONNECTED) {
             if (CRLF) {
                 val data2 = ByteArray(data.size + 2)
                 for (i in data.indices) data2[i] = data[i]
                 data2[data2.size - 2] = 0x0A
                 data2[data2.size - 1] = 0x0D
-                mChatService!!.write(data2)
+                mChatService?.write(data2)
             } else {
-                mChatService!!.write(data)
+                mChatService?.write(data)
             }
         }
     }
@@ -256,24 +263,20 @@ class BluetoothSPP(
 
     val pairedDeviceName: Array<String?>
         get() {
-            var c = 0
             val devices = bluetoothAdapter!!.bondedDevices
             val name_list = arrayOfNulls<String>(devices.size)
-            for (device in devices) {
+            for ((c, device) in devices.withIndex()) {
                 name_list[c] = device.name
-                c++
             }
             return name_list
         }
 
     val pairedDeviceAddress: Array<String?>
         get() {
-            var c = 0
             val devices = bluetoothAdapter!!.bondedDevices
             val address_list = arrayOfNulls<String>(devices.size)
-            for (device in devices) {
+            for ((c, device) in devices.withIndex()) {
                 address_list[c] = device.address
-                c++
             }
             return address_list
         }
@@ -286,14 +289,14 @@ class BluetoothSPP(
             if (mAutoConnectionListener != null) mAutoConnectionListener!!.onAutoConnectionStarted()
             val arr_filter_address =
                 ArrayList<String?>()
-            val arr_filter_name =
+            val arrFilterName =
                 ArrayList<String?>()
-            val arr_name = pairedDeviceName
-            val arr_address = pairedDeviceAddress
-            for (i in arr_name.indices) {
-                if (arr_name[i]!!.contains(keywordName)) {
-                    arr_filter_address.add(arr_address[i])
-                    arr_filter_name.add(arr_name[i])
+            val arrName = pairedDeviceName
+            val arrAddress = pairedDeviceAddress
+            for (i in arrName.indices) {
+                if (arrName[i]!!.contains(keywordName)) {
+                    arr_filter_address.add(arrAddress[i])
+                    arrFilterName.add(arrName[i])
                 }
             }
             bcl = object : BluetoothConnectionListener {
@@ -315,7 +318,7 @@ class BluetoothSPP(
                             connect(arr_filter_address[c])
                             Log.e("CHeck", "Connect")
                             if (mAutoConnectionListener != null) mAutoConnectionListener!!.onNewConnection(
-                                arr_filter_name[c]
+                                arrFilterName[c]
                                 , arr_filter_address[c]
                             )
                         } else {
@@ -328,7 +331,7 @@ class BluetoothSPP(
             setBluetoothConnectionListener(bcl)
             c = 0
             if (mAutoConnectionListener != null) mAutoConnectionListener!!.onNewConnection(
-                arr_name[c], arr_address[c]
+                arrName[c], arrAddress[c]
             )
             if (arr_filter_address.size > 0) connect(arr_filter_address[c]) else Toast.makeText(
                 mContext,
